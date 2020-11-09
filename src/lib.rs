@@ -42,27 +42,26 @@ impl FrameSync<ClockUnit0> for gpio::Pa11<gpio::PfG> {}
 impl FrameSync<ClockUnit1> for gpio::Pb12<gpio::PfG> {}
 
 // TODO encode the transmitter/receiver/disabled for the two serializers in the type
-pub struct I2s<ClkUnit, SerialClockPin, FrameSyncPin> {
+pub struct I2s<SerialClockPin, FrameSyncPin> {
     hw: pac::I2S,
     serial_clock_pin: SerialClockPin,
     frame_sync_pin: FrameSyncPin,
     data_in_pin: gpio::Pa7<gpio::PfG>,
     data_out_pin: gpio::Pa8<gpio::PfG>,
-    phantom: PhantomData<ClkUnit>
 }
 
-impl<ClkUnit: ClockUnit, SerialClockPin, FrameSyncPin> I2s<ClkUnit, SerialClockPin, FrameSyncPin> {
+impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
     // TODO figure out how to convey frequency of the connected gclk ** the LCD via IIC example **
     // data_in
     // data_out
     // sck
     // frame_sync
-    pub fn tdm_master(
+    pub fn tdm_master<ClkUnit: ClockUnit>(
         hw: pac::I2S,
         number_of_slots: u8,
         serial_clock_pin: SerialClockPin,
         frame_sync_pin: FrameSyncPin,
-        data_in_pin: gpio::Pa7<gpio::PfG>, // TODO use option<>
+        data_in_pin: gpio::Pa7<gpio::PfG>, // TODO use option<> or similar, make generic like serial clock
         data_out_pin: gpio::Pa8<gpio::PfG>, // TODO use option<>
         ) -> Self
     where
@@ -75,7 +74,6 @@ impl<ClkUnit: ClockUnit, SerialClockPin, FrameSyncPin> I2s<ClkUnit, SerialClockP
             frame_sync_pin,
             data_in_pin,
             data_out_pin,
-            phantom: PhantomData,
         };
 
         ret.reset();
