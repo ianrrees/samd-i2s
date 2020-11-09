@@ -9,65 +9,94 @@ extern crate atsamd_hal as hal;
 
 extern crate defmt_rtt;
 
+use core::marker::PhantomData;
 use hal::gpio;
 
 // use hal::prelude::*;
 use hal::target_device as pac;
 
 pub use hal::target_device::i2s::clkctrl::SLOTSIZE_A as SlotSize;
+use hal::target_device::i2s::serctrl::CLKSEL_A as ClockUnitID;
 
-#[derive(Debug)]
-pub enum ClockUnit {
-    Unit0 = 0,
-    Unit1 = 1,
-    All
+pub struct ClockUnit0 {}
+pub struct ClockUnit1 {}
+pub trait ClockUnit {
+    fn id() -> ClockUnitID;
 }
+
+impl ClockUnit for ClockUnit0 {
+    fn id() -> ClockUnitID { ClockUnitID::CLK0 }
+}
+
+impl ClockUnit for ClockUnit1 {
+    fn id() -> ClockUnitID { ClockUnitID::CLK1 }
+}
+
+pub trait SerialClock<ClockUnit> {}
+pub trait FrameSync<ClockUnit> {}
+
+impl SerialClock<ClockUnit0> for gpio::Pa10<gpio::PfG> {}
+impl SerialClock<ClockUnit1> for gpio::Pb11<gpio::PfG> {}
+
+impl FrameSync<ClockUnit0> for gpio::Pa11<gpio::PfG> {}
+impl FrameSync<ClockUnit1> for gpio::Pb12<gpio::PfG> {}
 
 // TODO encode the transmitter/receiver/disabled for the two serializers in the type
-pub struct I2s {
+pub struct I2s<ClkUnit, SerialClockPin, FrameSyncPin> {
     hw: pac::I2S,
-    serial_clock_pin: gpio::Pa10<gpio::PfG>,
-    frame_sync_pin: gpio::Pa11<gpio::PfG>,
+    serial_clock_pin: SerialClockPin,
+    frame_sync_pin: FrameSyncPin,
     data_in_pin: gpio::Pa7<gpio::PfG>,
     data_out_pin: gpio::Pa8<gpio::PfG>,
+    phantom: PhantomData<ClkUnit>
 }
 
-impl I2s {
+impl<ClkUnit: ClockUnit, SerialClockPin, FrameSyncPin> I2s<ClkUnit, SerialClockPin, FrameSyncPin> {
     // TODO figure out how to convey frequency of the connected gclk ** the LCD via IIC example **
-    // TODO maybe this could allow for either clock unit?
     // data_in
     // data_out
     // sck
     // frame_sync
-    pub fn tdm_master(hw: pac::I2S,
+    pub fn tdm_master(
+        hw: pac::I2S,
         number_of_slots: u8,
-        serial_clock_pin: gpio::Pa10<gpio::PfG>,
-        frame_sync_pin: gpio::Pa11<gpio::PfG>,
-        data_in_pin: gpio::Pa7<gpio::PfG>,
-        data_out_pin: gpio::Pa8<gpio::PfG>,
-        ) -> Self {
+        serial_clock_pin: SerialClockPin,
+        frame_sync_pin: FrameSyncPin,
+        data_in_pin: gpio::Pa7<gpio::PfG>, // TODO use option<>
+        data_out_pin: gpio::Pa8<gpio::PfG>, // TODO use option<>
+        ) -> Self
+    where
+        SerialClockPin: SerialClock<ClkUnit>,
+        FrameSyncPin: FrameSync<ClkUnit>
+    {
         let ret = Self {
             hw,
             serial_clock_pin,
             frame_sync_pin,
             data_in_pin,
             data_out_pin,
+            phantom: PhantomData,
         };
 
         ret.reset();
 
-        // Just need one clock unit, unsafe is due to nbslots().bits()
+        let clock_unit = ClkUnit::id();
+
+        // unsafe is due to nbslots().bits()
         unsafe {
-            ret.hw.clkctrl[0].write(|clock_unit| { clock_unit
+            ret.hw.clkctrl[clock_unit as usize].write(|clock_unit| { clock_unit
                 .fswidth().bit_()
                 .nbslots().bits(number_of_slots - 1)
                 .slotsize().variant(SlotSize::_32) // TODO take as argument, reexport unambiguously
             });
         }
 
-        // Configure the Serializers
-        // Both serializers use clock unit 0 by default
+        ret.hw.serctrl[0].write(|serializer| { serializer
+            .clksel().variant(clock_unit)
+        });
+
         ret.hw.serctrl[1].write(|serializer| { serializer
+            .clksel().variant(clock_unit)
             .sermode().tx()
         });
 
@@ -84,8 +113,8 @@ impl I2s {
     /// Gives the peripheral and pins back
     pub fn free(self) -> (
         pac::I2S,
-        gpio::Pa10<gpio::PfG>,
-        gpio::Pa11<gpio::PfG>,
+        SerialClockPin,
+        FrameSyncPin,
         gpio::Pa7<gpio::PfG>,
         gpio::Pa8<gpio::PfG>,) {(
             self.hw,
@@ -107,14 +136,5 @@ impl I2s {
     /// Enable the peripheral
     pub fn enable(&self) {
         self.hw.ctrla.modify(|_, w| w.enable().set_bit());
-    }
-
-    // TODO look in to modifying the PAC to use an enum for this
-    pub fn set_num_slots(&self, unit: ClockUnit, num: u8) {
-        if num == 0 || num > 8 {
-            panic!("Must have between 1 and 8 slots, inclusive");
-        }
-
-        self.hw.clkctrl[unit as usize].modify(|_, w| unsafe{w.nbslots().bits(num-1)});
     }
 }
