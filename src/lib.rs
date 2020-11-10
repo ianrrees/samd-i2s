@@ -26,11 +26,15 @@ pub trait ClockUnit {
 }
 
 impl ClockUnit for ClockUnit0 {
-    fn id() -> ClockUnitID { ClockUnitID::CLK0 }
+    fn id() -> ClockUnitID {
+        ClockUnitID::CLK0
+    }
 }
 
 impl ClockUnit for ClockUnit1 {
-    fn id() -> ClockUnitID { ClockUnitID::CLK1 }
+    fn id() -> ClockUnitID {
+        ClockUnitID::CLK1
+    }
 }
 
 pub trait MasterClock<ClockUnit> {
@@ -65,13 +69,8 @@ pub struct I2s<SerialClockPin, FrameSyncPin> {
 }
 
 impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
-
     /// master_clock_generator, serial_clock_pin, and frame_sync_pin must be attached to the same clock unit
-    pub fn tdm_master<
-        ClockGenerator,
-        ClkUnit: ClockUnit,
-        Freq: Into<Hertz>
-    > (
+    pub fn tdm_master<ClockGenerator, ClkUnit: ClockUnit, Freq: Into<Hertz>>(
         hw: pac::I2S,
         pm: &mut hal::target_device::PM,
         master_clock_generator: ClockGenerator,
@@ -81,11 +80,11 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
         frame_sync_pin: FrameSyncPin,
         data_in_pin: gpio::Pa7<gpio::PfG>, // TODO use option<> or similar, make generic like serial clock
         data_out_pin: gpio::Pa8<gpio::PfG>, // TODO use option<>
-        ) -> Self
+    ) -> Self
     where
         ClockGenerator: MasterClock<ClkUnit>,
         SerialClockPin: SerialClock<ClkUnit>,
-        FrameSyncPin: FrameSync<ClkUnit>
+        FrameSyncPin: FrameSync<ClkUnit>,
     {
         // Turn on the APB clock to the I2S peripheral
         pm.apbcmask.modify(|_, w| w.i2s_().set_bit());
@@ -98,40 +97,36 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
         unsafe {
             hw.clkctrl[clock_unit as usize].write(|clock_unit| {
                 clock_unit
-                    .fswidth().bit_()
-                    .nbslots().bits(number_of_slots - 1)
-                    .slotsize().variant(SlotSize::_32); // TODO take as argument, reexport unambiguously
+                    .fswidth()
+                    .bit_()
+                    .nbslots()
+                    .bits(number_of_slots - 1)
+                    .slotsize()
+                    .variant(SlotSize::_32); // TODO take as argument, reexport unambiguously
                 let divisor = (master_clock_generator.freq().0 / serial_freq.into().0 - 1) as u8;
                 clock_unit.mckdiv().bits(divisor)
                 // .mcken().set_bit()
             });
         }
 
-        hw.serctrl[0].write(|w| { w
-            .clksel().variant(clock_unit)
-        });
+        hw.serctrl[0].write(|w| w.clksel().variant(clock_unit));
 
-        hw.serctrl[1].write(|w| { w
-            .clksel().variant(clock_unit)
-            .sermode().tx()
-        });
+        hw.serctrl[1].write(|w| w.clksel().variant(clock_unit).sermode().tx());
 
         // Synchronization doesn't seem to happen until the peripheral is enabled
 
         match clock_unit {
             ClockUnitID::CLK0 => {
-                hw.ctrla.modify(|_, w| { w.cken0().set_bit() });
+                hw.ctrla.modify(|_, w| w.cken0().set_bit());
             }
 
             ClockUnitID::CLK1 => {
-                hw.ctrla.modify(|_, w| { w.cken1().set_bit() });
+                hw.ctrla.modify(|_, w| w.cken1().set_bit());
             }
         }
 
-        hw.ctrla.modify(|_, w| { w
-            .seren0().set_bit()
-            .seren1().set_bit()
-        });
+        hw.ctrla
+            .modify(|_, w| w.seren0().set_bit().seren1().set_bit());
 
         Self {
             hw,
@@ -142,9 +137,8 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
         }
     }
 
-    pub fn send(&self, v:u32) {
-        while self.hw.intflag.read().txrdy1().bit_is_clear() {
-        }
+    pub fn send(&self, v: u32) {
+        while self.hw.intflag.read().txrdy1().bit_is_clear() {}
 
         unsafe {
             self.hw.data[1].write(|reg| reg.data().bits(v));
@@ -152,37 +146,40 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
     }
 
     /// Gives the peripheral and pins back
-    pub fn free(self) -> (
+    pub fn free(
+        self,
+    ) -> (
         pac::I2S,
         SerialClockPin,
         FrameSyncPin,
         gpio::Pa7<gpio::PfG>,
-        gpio::Pa8<gpio::PfG>,) {(
+        gpio::Pa8<gpio::PfG>,
+    ) {
+        (
             self.hw,
             self.serial_clock_pin,
             self.frame_sync_pin,
             self.data_in_pin,
-            self.data_out_pin
-    )}
+            self.data_out_pin,
+        )
+    }
 
     /// Blocking software reset of the peripheral
     fn reset(hw: &pac::I2S) {
         hw.ctrla.write(|w| w.swrst().set_bit());
 
-        while hw.syncbusy.read().swrst().bit_is_set()
-              || hw.ctrla.read().swrst().bit_is_set() {
-        }
+        while hw.syncbusy.read().swrst().bit_is_set() || hw.ctrla.read().swrst().bit_is_set() {}
     }
 
     /// Enable the peripheral
     pub fn enable(&self) {
-        self.hw.ctrla.modify(|_, w| { w.enable().set_bit() });
+        self.hw.ctrla.modify(|_, w| w.enable().set_bit());
 
         while self.hw.syncbusy.read().cken0().bit_is_set()
-              || self.hw.syncbusy.read().cken1().bit_is_set()
-              || self.hw.syncbusy.read().seren0().bit_is_set()
-              || self.hw.syncbusy.read().seren1().bit_is_set()
-              || self.hw.syncbusy.read().enable().bit_is_set() {
-        }
+            || self.hw.syncbusy.read().cken1().bit_is_set()
+            || self.hw.syncbusy.read().seren0().bit_is_set()
+            || self.hw.syncbusy.read().seren1().bit_is_set()
+            || self.hw.syncbusy.read().enable().bit_is_set()
+        {}
     }
 }
