@@ -1,0 +1,10 @@
+* Document
+* Condition defmt on a feature flag
+* Make the serializer allocation dynamic based on supplied pins
+* Optionally get the clock(s) from external sources
+* Warn if clock divisions don't work out evenly
+* Allow not configuring a sender/receiver
+* Add an i2s master along the lines of tdm_master()
+* Return result<> from send() instead of spinning, and implement a corresponding receive()
+* Re-implementation of MasterClock::freq() seems strange...
+* tdm_master() should accept the slot size as an argument

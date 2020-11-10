@@ -78,8 +78,8 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
         number_of_slots: u8,
         serial_clock_pin: SerialClockPin,
         frame_sync_pin: FrameSyncPin,
-        data_in_pin: gpio::Pa7<gpio::PfG>, // TODO use option<> or similar, make generic like serial clock
-        data_out_pin: gpio::Pa8<gpio::PfG>, // TODO use option<>
+        data_in_pin: gpio::Pa7<gpio::PfG>,
+        data_out_pin: gpio::Pa8<gpio::PfG>,
     ) -> Self
     where
         ClockGenerator: MasterClock<ClkUnit>,
@@ -102,10 +102,9 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
                     .nbslots()
                     .bits(number_of_slots - 1)
                     .slotsize()
-                    .variant(SlotSize::_32); // TODO take as argument, reexport unambiguously
+                    .variant(SlotSize::_32);
                 let divisor = (master_clock_generator.freq().0 / serial_freq.into().0 - 1) as u8;
                 clock_unit.mckdiv().bits(divisor)
-                // .mcken().set_bit()
             });
         }
 
