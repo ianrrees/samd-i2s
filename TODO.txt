@@ -7,4 +7,3 @@
 * Add an i2s master along the lines of tdm_master()
 * Return result<> from send() instead of spinning, and implement a corresponding receive()
 * Re-implementation of MasterClock::freq() seems strange...
-* tdm_master() should accept the slot size as an argument

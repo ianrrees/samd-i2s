@@ -9,12 +9,11 @@ extern crate atsamd_hal as hal;
 
 extern crate defmt_rtt;
 
-use hal::clock;
 use hal::gpio;
 use hal::target_device as pac;
 use hal::time::Hertz;
 
-pub use pac::i2s::clkctrl::SLOTSIZE_A as SlotSize;
+pub use pac::i2s::clkctrl::SLOTSIZE_A as BitsPerSlot;
 use pac::i2s::serctrl::CLKSEL_A as ClockUnitID;
 
 pub struct ClockUnit0 {}
@@ -76,6 +75,7 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
         master_clock_generator: ClockGenerator,
         serial_freq: Freq,
         number_of_slots: u8,
+        bits_per_slot: BitsPerSlot,
         serial_clock_pin: SerialClockPin,
         frame_sync_pin: FrameSyncPin,
         data_in_pin: gpio::Pa7<gpio::PfG>,
@@ -95,16 +95,16 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
 
         // unsafe is due to the bits() calls
         unsafe {
-            hw.clkctrl[clock_unit as usize].write(|clock_unit| {
-                clock_unit
+            hw.clkctrl[clock_unit as usize].write(|w| {
+                w
                     .fswidth()
                     .bit_()
                     .nbslots()
                     .bits(number_of_slots - 1)
                     .slotsize()
-                    .variant(SlotSize::_32);
+                    .variant(bits_per_slot);
                 let divisor = (master_clock_generator.freq().0 / serial_freq.into().0 - 1) as u8;
-                clock_unit.mckdiv().bits(divisor)
+                w.mckdiv().bits(divisor)
             });
         }
 
