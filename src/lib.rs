@@ -16,6 +16,19 @@ use hal::time::Hertz;
 pub use pac::i2s::clkctrl::SLOTSIZE_A as BitsPerSlot;
 use pac::i2s::serctrl::CLKSEL_A as ClockUnitID;
 
+//////////// This probably belongs in an I2S trait crate? ////////////
+#[derive(Debug)]
+pub enum I2SError {
+    /// An operation would block because the device is currently busy or there is no data available.
+    WouldBlock,
+}
+
+/// Result for I2S operations.
+pub type Result<T> = core::result::Result<T, I2SError>;
+
+//////////// End trait-ish stuff ////////////
+
+
 pub struct ClockUnit0 {}
 pub struct ClockUnit1 {}
 
@@ -136,12 +149,18 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
         }
     }
 
-    pub fn send(&self, v: u32) {
-        while self.hw.intflag.read().txrdy1().bit_is_clear() {}
+    pub fn send(&self, v: u32) -> Result<()> {
+        if self.hw.intflag.read().txrdy1().bit_is_clear() {
+            return Err(I2SError::WouldBlock);
+        }
 
         unsafe {
             self.hw.data[1].write(|reg| reg.data().bits(v));
         }
+
+        while self.hw.syncbusy.read().data1().bit_is_set() {}
+
+        Ok(())
     }
 
     /// Gives the peripheral and pins back

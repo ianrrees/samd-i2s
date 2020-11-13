@@ -1,3 +1,5 @@
+TODO for samd-i2s:
+
 * Document
 * Condition defmt on a feature flag
 * Make the serializer allocation dynamic based on supplied pins
@@ -5,5 +7,5 @@
 * Warn if clock divisions don't work out evenly
 * Allow not configuring a sender/receiver
 * Add an i2s master along the lines of tdm_master()
-* Return result<> from send() instead of spinning, and implement a corresponding receive()
+* Implement a receive() like send()
 * Re-implementation of MasterClock::freq() seems strange...
