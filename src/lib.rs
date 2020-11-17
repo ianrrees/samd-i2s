@@ -200,4 +200,9 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
             || self.hw.syncbusy.read().enable().bit_is_set()
         {}
     }
+
+    /// Intended as a DMA destination; if writing single values use send()
+    pub fn transmit_ptr(&self) -> *mut u32 {
+        &self.hw.data[1] as *const _ as *mut u32
+    }
 }

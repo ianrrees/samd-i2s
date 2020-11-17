@@ -9,3 +9,4 @@ TODO for samd-i2s:
 * Add an i2s master along the lines of tdm_master()
 * Implement a receive() like send()
 * Re-implementation of MasterClock::freq() seems strange...
+* Use Sealed as in https://github.com/atsamd-rs/atsamd/issues/214
