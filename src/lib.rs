@@ -13,6 +13,18 @@ use hal::gpio;
 use hal::target_device as pac;
 use hal::time::Hertz;
 
+// TODO for samd5x parts, this will need to be pac::dmac::chctrla::TRIGSRC_A
+#[cfg(any(feature = "samd11", feature = "samd21"))]
+pub use pac::dmac::chctrlb::TRIGSRC_A as DmaTriggerSource;
+// Havent 
+#[cfg(any(
+    feature = "samd51",
+    feature = "same51",
+    feature = "same53",
+    feature = "same54"
+))]
+pub use pac::dmac::chctrla::TRIGSRC_A as DmaTriggerSource;
+
 pub use pac::i2s::clkctrl::SLOTSIZE_A as BitsPerSlot;
 use pac::i2s::serctrl::CLKSEL_A as ClockUnitID;
 
@@ -106,6 +118,7 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
 
         let clock_unit = ClkUnit::id();
 
+        defmt::info!("Master clock running at {:u32}", master_clock_generator.freq().0);
         // unsafe is due to the bits() calls
         unsafe {
             hw.clkctrl[clock_unit as usize].write(|w| {
@@ -117,6 +130,7 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
                     .slotsize()
                     .variant(bits_per_slot);
                 let divisor = (master_clock_generator.freq().0 / serial_freq.into().0 - 1) as u8;
+                defmt::info!("divisor is {:u8}", divisor);
                 w.mckdiv().bits(divisor)
             });
         }
@@ -202,7 +216,21 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
     }
 
     /// Intended as a DMA destination; if writing single values use send()
-    pub fn transmit_ptr(&self) -> *mut u32 {
+    // TODO Figure out how to make this and receive_dma_ptr() const
+    pub fn transmit_dma_ptr(&self) -> *mut u32 {
         &self.hw.data[1] as *const _ as *mut u32
+    }
+
+    pub const fn transmit_dma_trigger(&self) -> DmaTriggerSource {
+        DmaTriggerSource::I2S_TX_1
+    }
+
+    /// Intended as a DMA source; if writing single values use receive()
+    pub fn receive_dma_ptr(&self) -> *mut u32 {
+        &self.hw.data[0] as *const _ as *mut u32
+    }
+
+    pub const fn receive_dma_trigger(&self) -> DmaTriggerSource {
+        DmaTriggerSource::I2S_RX_0
     }
 }
