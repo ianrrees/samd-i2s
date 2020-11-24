@@ -9,6 +9,8 @@ extern crate atsamd_hal as hal;
 
 extern crate defmt_rtt;
 
+use core::marker::PhantomData;
+
 use hal::gpio;
 use hal::target_device as pac;
 use hal::time::Hertz;
@@ -74,6 +76,29 @@ impl MasterClock<ClockUnit1> for hal::clock::I2S1Clock {
         self.freq()
     }
 }
+pub struct ExternalClock<PinType> {
+    frequency: Hertz,
+    pin: PhantomData<PinType>,
+}
+
+impl MasterClock<ClockUnit0> for ExternalClock<gpio::Pa09<gpio::PfG>> {
+    fn freq(&self) -> Hertz {
+        self.frequency
+    }
+}
+
+#[cfg(any(feature = "min-samd21j"))] // TODO pick min packages for each GPIO pin
+impl MasterClock<ClockUnit0> for ExternalClock<gpio::Pb17<gpio::PfG>> {
+    fn freq(&self) -> Hertz {
+        self.frequency
+    }
+}
+
+impl MasterClock<ClockUnit1> for ExternalClock<gpio::Pb10<gpio::PfG>> {
+    fn freq(&self) -> Hertz {
+        self.frequency
+    }
+}
 
 pub trait SerialClock<ClockUnit> {}
 impl SerialClock<ClockUnit0> for gpio::Pa10<gpio::PfG> {}
@@ -81,23 +106,25 @@ impl SerialClock<ClockUnit1> for gpio::Pb11<gpio::PfG> {}
 
 pub trait FrameSync<ClockUnit> {}
 impl FrameSync<ClockUnit0> for gpio::Pa11<gpio::PfG> {}
+#[cfg(any(feature = "min-samd21j"))]
 impl FrameSync<ClockUnit1> for gpio::Pb12<gpio::PfG> {}
 
 // TODO encode the transmitter/receiver/disabled for the two serializers in the type
-pub struct I2s<SerialClockPin, FrameSyncPin> {
+pub struct I2s<MasterClockSource, SerialClockPin, FrameSyncPin> {
     hw: pac::I2S,
     serial_clock_pin: SerialClockPin,
     frame_sync_pin: FrameSyncPin,
     data_in_pin: gpio::Pa7<gpio::PfG>,
     data_out_pin: gpio::Pa8<gpio::PfG>,
+    master_clock_source: MasterClockSource,
 }
 
-impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
-    /// master_clock_generator, serial_clock_pin, and frame_sync_pin must be attached to the same clock unit
-    pub fn tdm_master<ClockGenerator, ClkUnit: ClockUnit, Freq: Into<Hertz>>(
+impl<MasterClockSource, SerialClockPin, FrameSyncPin> I2s<MasterClockSource, SerialClockPin, FrameSyncPin> {
+    /// master_clock_source, serial_clock_pin, and frame_sync_pin must be attached to the same clock unit
+    pub fn tdm_master<ClkUnit: ClockUnit, Freq: Into<Hertz>>(
         hw: pac::I2S,
         pm: &mut hal::target_device::PM,
-        master_clock_generator: ClockGenerator,
+        master_clock_source: MasterClockSource,
         serial_freq: Freq,
         number_of_slots: u8,
         bits_per_slot: BitsPerSlot,
@@ -107,7 +134,7 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
         data_out_pin: gpio::Pa8<gpio::PfG>,
     ) -> Self
     where
-        ClockGenerator: MasterClock<ClkUnit>,
+        MasterClockSource: MasterClock<ClkUnit>,
         SerialClockPin: SerialClock<ClkUnit>,
         FrameSyncPin: FrameSync<ClkUnit>,
     {
@@ -118,20 +145,20 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
 
         let clock_unit = ClkUnit::id();
 
-        defmt::info!("Master clock running at {:u32}", master_clock_generator.freq().0);
+        defmt::info!("Master clock running at {:u32}", master_clock_source.freq().0);
+
+        let master_clock_divisor = (master_clock_source.freq().0 / serial_freq.into().0 - 1) as u8;
+        defmt::info!("divisor is {:u8}", master_clock_divisor);
+
         // unsafe is due to the bits() calls
         unsafe {
             hw.clkctrl[clock_unit as usize].write(|w| {
                 w
-                    .fswidth()
-                    .bit_()
-                    .nbslots()
-                    .bits(number_of_slots - 1)
-                    .slotsize()
-                    .variant(bits_per_slot);
-                let divisor = (master_clock_generator.freq().0 / serial_freq.into().0 - 1) as u8;
-                defmt::info!("divisor is {:u8}", divisor);
-                w.mckdiv().bits(divisor)
+                    .mckdiv().bits(master_clock_divisor)
+                    // .scksel().sckpin() // Uses SCK pin as input
+                    .fswidth().bit_()
+                    .nbslots().bits(number_of_slots - 1)
+                    .slotsize().variant(bits_per_slot)
             });
         }
 
@@ -160,6 +187,7 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
             frame_sync_pin,
             data_in_pin,
             data_out_pin,
+            master_clock_source,
         }
     }
 
@@ -186,6 +214,7 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
         FrameSyncPin,
         gpio::Pa7<gpio::PfG>,
         gpio::Pa8<gpio::PfG>,
+        MasterClockSource,
     ) {
         (
             self.hw,
@@ -193,6 +222,7 @@ impl<SerialClockPin, FrameSyncPin> I2s<SerialClockPin, FrameSyncPin> {
             self.frame_sync_pin,
             self.data_in_pin,
             self.data_out_pin,
+            self.master_clock_source,
         )
     }
 
