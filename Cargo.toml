@@ -9,22 +9,23 @@ keywords = ["no-std", "arm", "cortex-m", "embedded-hal", "samd", "atsamd", "samd
 cortex-m = "~0.6"
 
 [dependencies.atsamd-hal]
-version = "~0.9"
+# Under-development version with DMA support
 default-features = false
+path = "../atsamd/hal"
 
 [dependencies.defmt]
 git = "https://github.com/knurling-rs/defmt"
 # Must be the same revision as probe-run's defmt-decoder and defmt-elf2table
-rev = "a6dc0904872cd3f4aee5125dffc17723df3c9393"
+rev = "1bb6478544a7188b2e7f3ac21939f58f50d56b9f"
 
 [dependencies.defmt-rtt]
 git = "https://github.com/knurling-rs/defmt"
 # Must be the same revision as probe-run's defmt-decoder and defmt-elf2table
-rev = "a6dc0904872cd3f4aee5125dffc17723df3c9393"
+rev = "1bb6478544a7188b2e7f3ac21939f58f50d56b9f"
 
 [features]
 samd21 = []
-samd21g18a = ["samd21", "atsamd-hal/samd21g18a", "defmt-default"]
+samd21g18a = ["samd21", "atsamd-hal/samd21g", "defmt-default"]
 
 defmt-default = []
 defmt-trace = []
