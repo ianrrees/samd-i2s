@@ -45,19 +45,15 @@ pub struct ClockUnit1;
 
 /// Allows compile-time associations between pins and clock units
 pub trait ClockUnit {
-    fn id() -> ClockUnitID;
+    const ID: ClockUnitID;
 }
 
 impl ClockUnit for ClockUnit0 {
-    fn id() -> ClockUnitID {
-        ClockUnitID::CLK0
-    }
+    const ID: ClockUnitID = ClockUnitID::CLK0;
 }
 
 impl ClockUnit for ClockUnit1 {
-    fn id() -> ClockUnitID {
-        ClockUnitID::CLK1
-    }
+    const ID: ClockUnitID = ClockUnitID::CLK1;
 }
 
 // TODO perhaps have something like this in gpio?
@@ -116,34 +112,25 @@ pub enum Serializer {
     M1,
 }
 
-// TODO could this be an enum instead of a trait?
 /// The I2S peripheral has two serializers, each can be used as either an input or an output.  The
 /// SerializerOrientation trait is used to indicate which serializer is used for each direction.
 pub trait SerializerOrientation {
-    fn tx_id() -> Serializer;
-    fn rx_id() -> Serializer;
+    const TX_ID: Serializer;
+    const RX_ID: Serializer;
 }
 
 /// Transmit from serializer 0, receive on serializer 1
 pub struct Tx0Rx1;
 impl SerializerOrientation for Tx0Rx1 {
-    fn tx_id() -> Serializer {
-        Serializer::M0
-    }
-    fn rx_id() -> Serializer {
-        Serializer::M1
-    }
+    const TX_ID: Serializer = Serializer::M0;
+    const RX_ID: Serializer = Serializer::M1;
 }
 
 /// Transmit from serializer 1, receive on serializer 0
 pub struct Tx1Rx0;
 impl SerializerOrientation for Tx1Rx0 {
-    fn tx_id() -> Serializer {
-        Serializer::M1
-    }
-    fn rx_id() -> Serializer {
-        Serializer::M0
-    }
+    const TX_ID: Serializer = Serializer::M1;
+    const RX_ID: Serializer = Serializer::M0;
 }
 
 // TODO make these optional, in particular the Tx one to support PDM mics
@@ -204,8 +191,6 @@ impl<MasterClockSource, SerialClockPin, FrameSyncPin, RxPin, TxPin>
 
         Self::reset(&hw);
 
-        let clock_unit = ClkUnit::id();
-
         defmt::info!("Master clock running at {:u32}", master_clock_source.freq().0);
 
         let master_clock_divisor = (master_clock_source.freq().0 / serial_freq.into().0 - 1) as u8;
@@ -213,7 +198,7 @@ impl<MasterClockSource, SerialClockPin, FrameSyncPin, RxPin, TxPin>
 
         // unsafe is due to the bits() calls
         unsafe {
-            hw.clkctrl[clock_unit as usize].write(|w|
+            hw.clkctrl[ClkUnit::ID as usize].write(|w|
                 w
                     .mckdiv().bits(master_clock_divisor)
                     // .mcksel().mckpin() // Use MCK pin as master clock input
@@ -224,13 +209,13 @@ impl<MasterClockSource, SerialClockPin, FrameSyncPin, RxPin, TxPin>
             );
         }
 
-        hw.serctrl[SerializerCfg::rx_id() as usize].write(|w| w.clksel().variant(clock_unit));
+        hw.serctrl[SerializerCfg::RX_ID as usize].write(|w| w.clksel().variant(ClkUnit::ID));
 
-        hw.serctrl[SerializerCfg::tx_id() as usize].write(|w| w.clksel().variant(clock_unit).sermode().tx());
+        hw.serctrl[SerializerCfg::TX_ID as usize].write(|w| w.clksel().variant(ClkUnit::ID).sermode().tx());
 
         // Synchronization doesn't seem to happen until the peripheral is enabled
 
-        match clock_unit {
+        match ClkUnit::ID {
             ClockUnitID::CLK0 => {
                 hw.ctrla.modify(|_, w| w.cken0().set_bit());
             }
@@ -258,7 +243,7 @@ impl<MasterClockSource, SerialClockPin, FrameSyncPin, RxPin, TxPin>
         RxPin: SerializerRx<SerializerCfg>,
         TxPin: SerializerTx<SerializerCfg>,
     {
-        match SerializerCfg::tx_id() {
+        match SerializerCfg::TX_ID {
             Serializer::M0 => {
                 if self.hw.intflag.read().txrdy0().bit_is_clear() {
                     return Err(I2SError::WouldBlock);
@@ -332,7 +317,7 @@ impl<MasterClockSource, SerialClockPin, FrameSyncPin, RxPin, TxPin>
         RxPin: SerializerRx<SerializerCfg>,
         TxPin: SerializerTx<SerializerCfg>,
     {
-        &self.hw.data[SerializerCfg::tx_id() as usize] as *const _ as *mut u32
+        &self.hw.data[SerializerCfg::TX_ID as usize] as *const _ as *mut u32
     }
 
     pub fn transmit_dma_trigger<SerializerCfg: SerializerOrientation>(&self) -> DmaTriggerSource
@@ -340,7 +325,7 @@ impl<MasterClockSource, SerialClockPin, FrameSyncPin, RxPin, TxPin>
         RxPin: SerializerRx<SerializerCfg>,
         TxPin: SerializerTx<SerializerCfg>,
     {
-        match SerializerCfg::tx_id() {
+        match SerializerCfg::TX_ID {
             Serializer::M0 => DmaTriggerSource::I2S_TX_0,
             Serializer::M1 => DmaTriggerSource::I2S_TX_1,
         }
@@ -352,7 +337,7 @@ impl<MasterClockSource, SerialClockPin, FrameSyncPin, RxPin, TxPin>
         RxPin: SerializerRx<SerializerCfg>,
         TxPin: SerializerTx<SerializerCfg>,
     {
-        &self.hw.data[SerializerCfg::rx_id() as usize] as *const _ as *mut u32
+        &self.hw.data[SerializerCfg::RX_ID as usize] as *const _ as *mut u32
     }
 
     pub fn receive_dma_trigger<SerializerCfg: SerializerOrientation>(&self) -> DmaTriggerSource
@@ -360,7 +345,7 @@ impl<MasterClockSource, SerialClockPin, FrameSyncPin, RxPin, TxPin>
         RxPin: SerializerRx<SerializerCfg>,
         TxPin: SerializerTx<SerializerCfg>,
     {
-        match SerializerCfg::rx_id() {
+        match SerializerCfg::RX_ID {
             Serializer::M0 => DmaTriggerSource::I2S_RX_0,
             Serializer::M1 => DmaTriggerSource::I2S_RX_1,
         }
