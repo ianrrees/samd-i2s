@@ -9,6 +9,7 @@ extern crate atsamd_hal as hal;
 
 extern crate defmt_rtt;
 
+use core::convert::From;
 use core::marker::PhantomData;
 
 use hal::gpio;
@@ -117,6 +118,12 @@ pub enum Serializer {
 pub trait SerializerOrientation {
     const TX_ID: Serializer;
     const RX_ID: Serializer;
+
+    // Masks are for the interrupt registers
+    const RECEIVE_READY_MASK: u16;
+    const RECEIVE_OVERRUN_MASK: u16;
+    const TRANSMIT_READY_MASK: u16;
+    const TRANSMIT_UNDERRUN_MASK: u16;
 }
 
 /// Transmit from serializer 0, receive on serializer 1
@@ -124,6 +131,11 @@ pub struct Tx0Rx1;
 impl SerializerOrientation for Tx0Rx1 {
     const TX_ID: Serializer = Serializer::M0;
     const RX_ID: Serializer = Serializer::M1;
+
+    const RECEIVE_READY_MASK: u16 = 1<<1;
+    const RECEIVE_OVERRUN_MASK: u16 = 1<<5;
+    const TRANSMIT_READY_MASK: u16 = 1<<8;
+    const TRANSMIT_UNDERRUN_MASK: u16 = 1<<12;
 }
 
 /// Transmit from serializer 1, receive on serializer 0
@@ -131,6 +143,11 @@ pub struct Tx1Rx0;
 impl SerializerOrientation for Tx1Rx0 {
     const TX_ID: Serializer = Serializer::M1;
     const RX_ID: Serializer = Serializer::M0;
+
+    const RECEIVE_READY_MASK: u16 = 1<<0;
+    const RECEIVE_OVERRUN_MASK: u16 = 1<<4;
+    const TRANSMIT_READY_MASK: u16 = 1<<9;
+    const TRANSMIT_UNDERRUN_MASK: u16 = 1<<13;
 }
 
 // TODO make these optional, in particular the Tx one to support PDM mics
@@ -148,6 +165,37 @@ impl SerializerRx<Tx1Rx0> for gpio::Pa19<gpio::PfG> {}
 #[cfg(any(feature = "min-samd21j"))]
 impl SerializerRx<Tx0Rx1> for gpio::Pb16<gpio::PfG> {}
 
+pub struct InterruptMask<T> {
+    mask: u16,
+    phantom: PhantomData<T>,
+}
+
+impl <T> From<u16> for InterruptMask<T> {
+    fn from(mask: u16) -> InterruptMask<T> {
+        InterruptMask {
+            mask,
+            phantom: PhantomData
+        }
+    }
+}
+
+impl <T: SerializerOrientation> InterruptMask<T> {
+    pub fn receive_ready(&self) -> bool {
+        self.mask & T::RECEIVE_READY_MASK != 0
+    }
+
+    pub fn receive_overrrun(&self) -> bool {
+        self.mask & T::RECEIVE_OVERRUN_MASK != 0
+    }
+
+    pub fn transmit_ready(&self) -> bool {
+        self.mask & T::TRANSMIT_READY_MASK != 0
+    }
+
+    pub fn transmit_underrun(&self) -> bool {
+        self.mask & T::TRANSMIT_UNDERRUN_MASK != 0
+    }
+}
 
 pub struct I2s<MasterClockSource, SerialClockPin, FrameSyncPin, RxPin, TxPin> {
     hw: pac::I2S,
@@ -308,6 +356,68 @@ impl<MasterClockSource, SerialClockPin, FrameSyncPin, RxPin, TxPin>
             || self.hw.syncbusy.read().seren1().bit_is_set()
             || self.hw.syncbusy.read().enable().bit_is_set()
         {}
+    }
+
+    pub fn enable_receive_ready_interrupt<SerializerCfg: SerializerOrientation>(&self)
+    where
+        RxPin: SerializerRx<SerializerCfg>,
+        TxPin: SerializerTx<SerializerCfg>,
+    {
+        unsafe {
+            self.hw.intenset.write(|w| {
+                w.bits(SerializerCfg::RECEIVE_READY_MASK)
+            });
+        } 
+    }
+
+    pub fn enable_receive_overrun_interrupt<SerializerCfg: SerializerOrientation>(&self)
+    where
+        RxPin: SerializerRx<SerializerCfg>,
+        TxPin: SerializerTx<SerializerCfg>,
+    {
+        unsafe {
+            self.hw.intenset.write(|w| {
+                w.bits(SerializerCfg::RECEIVE_OVERRUN_MASK)
+            });
+        } 
+    }
+
+    pub fn enable_transmit_ready_interrupt<SerializerCfg: SerializerOrientation>(&self)
+    where
+        RxPin: SerializerRx<SerializerCfg>,
+        TxPin: SerializerTx<SerializerCfg>,
+    {
+        unsafe {
+            self.hw.intenset.write(|w| {
+                w.bits(SerializerCfg::TRANSMIT_READY_MASK)
+            });
+        } 
+    }
+    pub fn enable_transmit_underrun_interrupt<SerializerCfg: SerializerOrientation>(&self)
+    where
+        RxPin: SerializerRx<SerializerCfg>,
+        TxPin: SerializerTx<SerializerCfg>,
+    {
+        unsafe {
+            self.hw.intenset.write(|w| {
+                w.bits(SerializerCfg::TRANSMIT_UNDERRUN_MASK)
+            });
+        } 
+    }
+
+
+    pub fn get_and_clear_interrupts<SerializerCfg: SerializerOrientation>(&self) -> InterruptMask<SerializerCfg>
+    where
+        RxPin: SerializerRx<SerializerCfg>,
+        TxPin: SerializerTx<SerializerCfg>,
+    {
+        let ints = self.hw.intflag.read().bits();
+        unsafe {
+            self.hw.intflag.write(|w| {
+                w.bits(ints)
+            });
+        }
+        InterruptMask::from(ints)
     }
 
     /// Intended as a DMA destination; if writing single values use send()
