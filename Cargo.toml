@@ -16,12 +16,12 @@ path = "../atsamd/hal"
 [dependencies.defmt]
 git = "https://github.com/knurling-rs/defmt"
 # Must be the same revision as probe-run's defmt-decoder and defmt-elf2table
-rev = "1bb6478544a7188b2e7f3ac21939f58f50d56b9f"
+rev = "c4461eb148461e54d9a1e203cf01393f07ce84f0"
 
 [dependencies.defmt-rtt]
 git = "https://github.com/knurling-rs/defmt"
 # Must be the same revision as probe-run's defmt-decoder and defmt-elf2table
-rev = "1bb6478544a7188b2e7f3ac21939f58f50d56b9f"
+rev = "c4461eb148461e54d9a1e203cf01393f07ce84f0"
 
 [features]
 samd21 = []

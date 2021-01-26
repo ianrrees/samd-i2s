@@ -239,10 +239,10 @@ impl<MasterClockSource, SerialClockPin, FrameSyncPin, RxPin, TxPin>
 
         Self::reset(&hw);
 
-        defmt::info!("Master clock running at {:u32}", master_clock_source.freq().0);
+        defmt::info!("Master clock running at {:?}", master_clock_source.freq().0);
 
         let master_clock_divisor = (master_clock_source.freq().0 / serial_freq.into().0 - 1) as u8;
-        defmt::info!("divisor is {:u8}", master_clock_divisor);
+        defmt::info!("divisor is {:?}", master_clock_divisor);
 
         // unsafe is due to the bits() calls
         unsafe {
