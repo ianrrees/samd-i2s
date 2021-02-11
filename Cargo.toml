@@ -11,7 +11,8 @@ cortex-m = "~0.6"
 [dependencies.atsamd-hal]
 # Under-development version with DMA support
 default-features = false
-path = "../atsamd/hal"
+git = "https://github.com/ianrrees/atsamd"
+branch = "add-dma"
 
 [dependencies.defmt]
 git = "https://github.com/knurling-rs/defmt"
