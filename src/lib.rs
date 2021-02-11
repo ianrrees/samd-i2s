@@ -251,6 +251,8 @@ impl<MasterClockSource, SerialClockPin, FrameSyncPin, RxPin, TxPin>
                     .mckdiv().bits(master_clock_divisor)
                     // .mcksel().mckpin() // Use MCK pin as master clock input
                     // .scksel().sckpin() // Uses SCK pin as input
+                    .sckoutinv().set_bit() // Invert serial clock
+                    .bitdelay().i2s() // 1-bit delay between fsync and data
                     .fswidth().bit_()
                     .nbslots().bits(number_of_slots - 1)
                     .slotsize().variant(bits_per_slot)

@@ -23,26 +23,25 @@ dependencies = [
 
 [[package]]
 name = "atsamd-hal"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "900a906d57e0fc2b4776ad8da6324e4ff2993cde693749b735138e11bf31124a"
+version = "0.12.0"
 dependencies = [
- "atsamd21g18a",
+ "atsamd21g",
  "bitfield",
+ "bitflags",
  "cortex-m",
  "embedded-hal",
  "nb 0.1.3",
  "paste",
  "rand_core",
+ "smart-default",
+ "typenum",
  "vcell",
  "void",
 ]
 
 [[package]]
-name = "atsamd21g18a"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9b52ecf067e83369523f62b6d92c13b161ac918b14b7975e12ee119aa953645"
+name = "atsamd21g"
+version = "0.9.0"
 dependencies = [
  "bare-metal",
  "cortex-m",
@@ -65,6 +64,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "46afbd2983a5d5a7bd740ccb198caf5b82f45c40c09c0eed36052d91cb92e719"
 
 [[package]]
+name = "bitflags"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
+
+[[package]]
+name = "byteorder"
+version = "1.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae44d1a3d5a19df61dd0c8beb138458ac2a53a7ac09eba97d55592540004306b"
+
+[[package]]
 name = "cortex-m"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -78,17 +89,18 @@ dependencies = [
 
 [[package]]
 name = "defmt"
-version = "0.1.0"
-source = "git+https://github.com/knurling-rs/defmt?rev=a6dc0904872cd3f4aee5125dffc17723df3c9393#a6dc0904872cd3f4aee5125dffc17723df3c9393"
+version = "0.1.3"
+source = "git+https://github.com/knurling-rs/defmt?rev=c4461eb148461e54d9a1e203cf01393f07ce84f0#c4461eb148461e54d9a1e203cf01393f07ce84f0"
 dependencies = [
  "defmt-macros",
+ "heapless",
  "semver 0.11.0",
 ]
 
 [[package]]
 name = "defmt-macros"
-version = "0.1.0"
-source = "git+https://github.com/knurling-rs/defmt?rev=a6dc0904872cd3f4aee5125dffc17723df3c9393#a6dc0904872cd3f4aee5125dffc17723df3c9393"
+version = "0.1.1"
+source = "git+https://github.com/knurling-rs/defmt?rev=c4461eb148461e54d9a1e203cf01393f07ce84f0#c4461eb148461e54d9a1e203cf01393f07ce84f0"
 dependencies = [
  "defmt-parser",
  "proc-macro2",
@@ -99,12 +111,12 @@ dependencies = [
 [[package]]
 name = "defmt-parser"
 version = "0.1.0"
-source = "git+https://github.com/knurling-rs/defmt?rev=a6dc0904872cd3f4aee5125dffc17723df3c9393#a6dc0904872cd3f4aee5125dffc17723df3c9393"
+source = "git+https://github.com/knurling-rs/defmt?rev=c4461eb148461e54d9a1e203cf01393f07ce84f0#c4461eb148461e54d9a1e203cf01393f07ce84f0"
 
 [[package]]
 name = "defmt-rtt"
 version = "0.1.0"
-source = "git+https://github.com/knurling-rs/defmt?rev=a6dc0904872cd3f4aee5125dffc17723df3c9393#a6dc0904872cd3f4aee5125dffc17723df3c9393"
+source = "git+https://github.com/knurling-rs/defmt?rev=c4461eb148461e54d9a1e203cf01393f07ce84f0#c4461eb148461e54d9a1e203cf01393f07ce84f0"
 dependencies = [
  "cortex-m",
  "defmt",
@@ -149,6 +161,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash32"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4041af86e63ac4298ce40e5cca669066e75b6f1aa3390fe2561ffa5e1d9f4cc"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
+name = "heapless"
+version = "0.5.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74911a68a1658cfcfb61bc0ccfbd536e3b6e906f8c2f7883ee50157e3e2184f1"
+dependencies = [
+ "as-slice",
+ "generic-array 0.13.2",
+ "hash32",
+ "stable_deref_trait",
+]
+
+[[package]]
 name = "nb"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -165,22 +198,9 @@ checksum = "546c37ac5d9e56f55e73b677106873d9d9f5190605e41a856503623648488cae"
 
 [[package]]
 name = "paste"
-version = "0.1.18"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45ca20c77d80be666aef2b45486da86238fabe33e38306bd3118fe4af33fa880"
-dependencies = [
- "paste-impl",
- "proc-macro-hack",
-]
-
-[[package]]
-name = "paste-impl"
-version = "0.1.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d95a7db200b97ef370c8e6de0088252f7e0dfff7d047a28528e47456c0fc98b6"
-dependencies = [
- "proc-macro-hack",
-]
+checksum = "c5d65c4d95931acda4498f675e332fcbdc9a06705cd07086c510e9b6009cd1c1"
 
 [[package]]
 name = "pest"
@@ -190,12 +210,6 @@ checksum = "10f4872ae94d7b90ae48754df22fd42ad52ce740b8f370b03da4835417403e53"
 dependencies = [
  "ucd-trie",
 ]
-
-[[package]]
-name = "proc-macro-hack"
-version = "0.5.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbf0c48bc1d91375ae5c3cd81e3722dff1abcf81a30960240640d223f59fe0e5"
 
 [[package]]
 name = "proc-macro2"
@@ -271,6 +285,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42ef146c2ad5e5f4b037cd6ce2ebb775401729b19a82040c1beac9d36c7d1428"
 dependencies = [
  "pest",
+]
+
+[[package]]
+name = "smart-default"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "133659a15339456eeeb07572eb02a91c91e9815e9cbc89566944d2c8d3efdbf6"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
