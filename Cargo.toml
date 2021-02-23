@@ -7,22 +7,14 @@ keywords = ["no-std", "arm", "cortex-m", "embedded-hal", "samd", "atsamd", "samd
 
 [dependencies]
 cortex-m = "~0.6"
+defmt = "0.2.0"
+defmt-rtt = "0.2.0"
 
 [dependencies.atsamd-hal]
 # Under-development version with DMA support
 default-features = false
 git = "https://github.com/ianrrees/atsamd"
 branch = "add-dma"
-
-[dependencies.defmt]
-git = "https://github.com/knurling-rs/defmt"
-# Must be the same revision as probe-run's defmt-decoder and defmt-elf2table
-rev = "c4461eb148461e54d9a1e203cf01393f07ce84f0"
-
-[dependencies.defmt-rtt]
-git = "https://github.com/knurling-rs/defmt"
-# Must be the same revision as probe-run's defmt-decoder and defmt-elf2table
-rev = "c4461eb148461e54d9a1e203cf01393f07ce84f0"
 
 [features]
 samd21 = []
