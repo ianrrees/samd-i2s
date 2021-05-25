@@ -13,8 +13,9 @@ defmt-rtt = "0.2.0"
 [dependencies.atsamd-hal]
 # Under-development version with DMA support
 default-features = false
-git = "https://github.com/ianrrees/atsamd"
-branch = "add-dma"
+# git = "https://github.com/ianrrees/atsamd"
+# branch = "add-dma"
+path = '/home/irees/Projects/20201112 - atsamd-rs/atsamd-rs/hal'
 
 [features]
 samd21 = []

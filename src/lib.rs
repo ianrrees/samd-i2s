@@ -1,6 +1,7 @@
 #![no_std]
 
 // feature approach cribbed from https://github.com/proman21/samd-dma
+// TODO improve
 #[cfg(not(feature = "samd21"))]
 compile_error!("Please use this crate's feature flags to select a target.");
 
@@ -12,6 +13,7 @@ extern crate defmt_rtt;
 use core::convert::From;
 use core::marker::PhantomData;
 
+use hal::dmac::Buffer;
 use hal::gpio;
 use hal::target_device as pac;
 use hal::time::Hertz;
@@ -194,6 +196,25 @@ impl <T: SerializerOrientation> InterruptMask<T> {
 
     pub fn transmit_underrun(&self) -> bool {
         self.mask & T::TRANSMIT_UNDERRUN_MASK != 0
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct I2sDmaBuffer(*mut u32);
+
+unsafe impl Buffer for I2sDmaBuffer {
+    type Beat = u32;
+
+    fn dma_ptr(&mut self) -> *mut Self::Beat {
+        self.0
+    }
+
+    fn incrementing(&self) -> bool {
+        false
+    }
+
+    fn buffer_len(&self) -> usize {
+        1
     }
 }
 
@@ -421,15 +442,15 @@ impl<MasterClockSource, SerialClockPin, FrameSyncPin, RxPin, TxPin>
         }
         InterruptMask::from(ints)
     }
-
-    /// Intended as a DMA destination; if writing single values use send()
-    // TODO Figure out how to make these DMA functions const
-    pub fn transmit_dma_ptr<SerializerCfg: SerializerOrientation>(&self) -> *mut u32
+    
+    pub fn transmit_dma_buffer<SerializerCfg: SerializerOrientation>(&self) -> I2sDmaBuffer
     where
         RxPin: SerializerRx<SerializerCfg>,
         TxPin: SerializerTx<SerializerCfg>,
     {
-        &self.hw.data[SerializerCfg::TX_ID as usize] as *const _ as *mut u32
+        I2sDmaBuffer(
+            &self.hw.data[SerializerCfg::TX_ID as usize] as *const _ as *mut u32
+        )
     }
 
     pub fn transmit_dma_trigger<SerializerCfg: SerializerOrientation>(&self) -> DmaTriggerSource
@@ -443,13 +464,14 @@ impl<MasterClockSource, SerialClockPin, FrameSyncPin, RxPin, TxPin>
         }
     }
 
-    /// Intended as a DMA source; if writing single values use receive()
-    pub fn receive_dma_ptr<SerializerCfg: SerializerOrientation>(&self) -> *mut u32
+    pub fn receive_dma_buffer<SerializerCfg: SerializerOrientation>(&self) -> I2sDmaBuffer
     where
         RxPin: SerializerRx<SerializerCfg>,
         TxPin: SerializerTx<SerializerCfg>,
     {
-        &self.hw.data[SerializerCfg::RX_ID as usize] as *const _ as *mut u32
+        I2sDmaBuffer(
+            &self.hw.data[SerializerCfg::RX_ID as usize] as *const _ as *mut u32
+        )
     }
 
     pub fn receive_dma_trigger<SerializerCfg: SerializerOrientation>(&self) -> DmaTriggerSource
