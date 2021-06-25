@@ -1,5 +1,4 @@
-samd-i2s
+Obsolete - Do Not Use
 ===
 
-This is not yet indended for use.
-My aim is a working implementation of the I2S peripheral, then to MR this to [https://github.com/atsamd-rs/atsamd].
+This repo was a scratchpad space, the active code has moved to [a branch](https://github.com/ianrrees/atsamd/tree/add-i2s) of [the ATSAMD HAL](https://github.com/atsamd-rs/atsamd).  Eventually, the plan is to merge it in with the upstream HAL.
